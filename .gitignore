@@ -1,0 +1,28 @@
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Keep example file
+!.env.example
+
+# Node modules (frontend)
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.user
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
