@@ -32,62 +32,11 @@ public class TaskReminderService : ITaskReminderService
         using var scope = _scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ReminderDbContext>();
 
-        var now = DateTime.UtcNow;
-        var todayStart = now.Date;
-        var remindersSent = 0;
-
-        var overdueTasks = await dbContext.Tasks
-            .Where(t => t.DueDate < now)
-            .Where(t => t.LastReminderSentAt == null || t.LastReminderSentAt < todayStart)
-            .OrderBy(t => t.DueDate)
-            .ToListAsync(cancellationToken);
+        var overdueTasks = await GetOverdueTasksAsync(dbContext, cancellationToken);
 
         _logger.LogInformation("Found {Count} overdue tasks needing reminders", overdueTasks.Count);
 
-        foreach (var task in overdueTasks)
-        {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                _logger.LogWarning("Cancellation requested, stopping task processing");
-                break;
-            }
-
-            try
-            {
-                var daysOverdue = (now - task.DueDate).Days;
-
-                // Enhanced logging for each overdue task
-                _logger.LogWarning(
-                    "OVERDUE TASK DETECTED | TaskId: {TaskId} | Title: {Title} | DueDate: {DueDate:yyyy-MM-dd} | DaysOverdue: {DaysOverdue} | Priority: {Priority} | Owner: {FullName} | Email: {Email}",
-                    task.Id,
-                    task.Title,
-                    task.DueDate,
-                    daysOverdue,
-                    task.Priority,
-                    task.FullName,
-                    task.Email);
-
-                var message = new TaskReminderMessage
-                {
-                    TaskId = task.Id,
-                    TaskTitle = task.Title,
-                    DueDate = task.DueDate,
-                    UserFullName = task.FullName,
-                    UserEmail = task.Email,
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                _rabbitMQService.PublishReminder(message);
-                task.LastReminderSentAt = DateTime.UtcNow;
-                remindersSent++;
-
-                _logger.LogDebug("Published reminder for task {TaskId}: {Title}", task.Id, task.Title);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish reminder for task {TaskId}", task.Id);
-            }
-        }
+        var remindersSent = await ProcessOverdueTasksAsync(overdueTasks, cancellationToken);
 
         if (remindersSent > 0)
         {
@@ -97,4 +46,87 @@ public class TaskReminderService : ITaskReminderService
 
         return remindersSent;
     }
+
+    private static async Task<List<UserTask>> GetOverdueTasksAsync(
+        ReminderDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var todayStart = now.Date;
+
+        return await dbContext.Tasks
+            .Where(t => t.DueDate < now)
+            .Where(t => t.LastReminderSentAt == null || t.LastReminderSentAt < todayStart)
+            .OrderBy(t => t.DueDate)
+            .ToListAsync(cancellationToken);
+    }
+
+    private Task<int> ProcessOverdueTasksAsync(
+        List<UserTask> tasks,
+        CancellationToken cancellationToken)
+    {
+        var remindersSent = 0;
+
+        foreach (var task in tasks)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning("Cancellation requested, stopping task processing");
+                break;
+            }
+
+            if (TryPublishReminder(task))
+            {
+                remindersSent++;
+            }
+        }
+
+        return Task.FromResult(remindersSent);
+    }
+
+    private bool TryPublishReminder(UserTask task)
+    {
+        try
+        {
+            LogOverdueTask(task);
+
+            var message = CreateReminderMessage(task);
+            _rabbitMQService.PublishReminder(message);
+
+            task.LastReminderSentAt = DateTime.UtcNow;
+
+            _logger.LogDebug("Published reminder for task {TaskId}: {Title}", task.Id, task.Title);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to publish reminder for task {TaskId}", task.Id);
+            return false;
+        }
+    }
+
+    private void LogOverdueTask(UserTask task)
+    {
+        var daysOverdue = (DateTime.UtcNow - task.DueDate).Days;
+
+        _logger.LogWarning(
+            "OVERDUE TASK DETECTED | TaskId: {TaskId} | Title: {Title} | DueDate: {DueDate:yyyy-MM-dd} | DaysOverdue: {DaysOverdue} | Priority: {Priority} | Owner: {FullName} | Email: {Email}",
+            task.Id,
+            task.Title,
+            task.DueDate,
+            daysOverdue,
+            task.Priority,
+            task.FullName,
+            task.Email);
+    }
+
+    private static TaskReminderMessage CreateReminderMessage(UserTask task) => new()
+    {
+        TaskId = task.Id,
+        TaskTitle = task.Title,
+        DueDate = task.DueDate,
+        UserFullName = task.FullName,
+        UserEmail = task.Email,
+        CreatedAt = DateTime.UtcNow
+    };
 }

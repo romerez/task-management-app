@@ -287,7 +287,6 @@ public class TaskReminderServiceTests : IDisposable
     [Fact]
     public async Task CheckAndPublishOverdueTasksAsync_ContinuesProcessingOnPublishError()
     {
-        // Arrange
         var tasks = new List<UserTask>
         {
             new()
@@ -321,11 +320,9 @@ public class TaskReminderServiceTests : IDisposable
             .Throws(new Exception("Publish failed"))
             .Pass();
 
-        // Act
         var result = await _sut.CheckAndPublishOverdueTasksAsync();
 
-        // Assert
-        Assert.Equal(1, result); // Only the second task should succeed
+        Assert.Equal(1, result); 
         _mockRabbitMQService.Verify(x => x.PublishReminder(It.IsAny<TaskReminderMessage>()), Times.Exactly(2));
     }
 

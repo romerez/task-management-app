@@ -40,7 +40,6 @@ namespace TasksManagerAPI.Middleware
             {
                 statusCode = context.Response.StatusCode,
                 message = "An internal server error occurred. Please try again later.",
-                detail = exception.Message // Remove in production
             };
 
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

@@ -19,6 +19,10 @@ try
     Log.Information("Starting Task Reminder Service...");
 
     var builder = Host.CreateApplicationBuilder(args);
+    if (builder.Environment.IsDevelopment())
+    {
+        builder.Configuration.AddUserSecrets<Program>();
+    }
 
     builder.Services.Configure<RabbitMQSettings>(
         builder.Configuration.GetSection(RabbitMQSettings.SectionName));

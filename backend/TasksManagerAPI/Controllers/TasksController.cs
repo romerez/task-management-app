@@ -19,7 +19,7 @@ namespace TasksManagerAPI.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(IEnumerable<TaskResponseDto>), StatusCodes.Status200OK)]
-        public async Task<ActionResult<IEnumerable<TaskResponseDto>>> GetAll()
+        public async Task<ActionResult<IEnumerable<TaskResponseDto>>> GetAll(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Retrieving all tasks");
             var tasks = await _taskService.GetAllTasksAsync();
