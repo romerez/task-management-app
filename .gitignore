@@ -26,3 +26,10 @@ logs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# .NET build outputs
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
