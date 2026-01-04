@@ -145,7 +145,7 @@ const Header: React.FC = () => (
                 Task Manager
             </Typography>
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                Manage your tasks efficiently
+                By Rom Erez
             </Typography>
         </Toolbar>
     </AppBar>
